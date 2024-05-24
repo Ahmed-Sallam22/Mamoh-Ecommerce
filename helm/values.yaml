@@ -1,0 +1,19 @@
+replicaCount: 1
+
+image:
+  repository: registry.gitlab.com/mohammed.mahamed/mamoh-client-cp-testing/reat_app
+  pullPolicy: IfNotPresent
+  tag: "0bf9a367"
+
+service:
+  type: LoadBalancer
+  port: 80
+
+ingress:
+  enabled: false
+  annotations: {}
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific

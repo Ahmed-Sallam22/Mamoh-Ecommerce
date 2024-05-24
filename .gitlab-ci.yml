@@ -1,0 +1,155 @@
+image: node:21.6.1
+
+stages:
+  - install
+  - setup
+  - sonar
+  - trivy file scan
+  - build
+  - docker
+  - trivy image scan
+  - test_image_docker
+  # - deploy_to_test
+  - deploy_to_prod
+
+variables:
+    # APP_NAME: reat_app
+    IMAGE_TAG: registry.gitlab.com/mohammed.mahamed/mamoh-client-cp-testing/$APP_NAME:$CI_COMMIT_SHORT_SHA
+
+before_script:
+  # Install dependencies and prepare the environment
+  - echo "hello" && echo "hello2"
+
+cache:
+  paths:
+    - node_modules/
+
+
+install_dependencies:
+  stage: install
+  script:
+    # - echo "REACT_APP_HOST_API=https://tapis.ma-moh.com" >> ".env"
+    - npm install
+
+# sonarqube-check:
+#   stage : sonar
+#   tags:
+#     - private-runner
+#   image: 
+#     name: sonarsource/sonar-scanner-cli:latest
+#     entrypoint: [""]
+#   variables:
+#     SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"  # Defines the location of the analysis task cache
+#     GIT_DEPTH: "0"  # Tells git to fetch all the branches of the project, required by the analysis task
+#   cache:
+#     key: "${CI_JOB_NAME}"
+#     paths:
+#       - .sonar/cache
+#   script: 
+#     - sonar-scanner
+#   allow_failure: true
+#   only:
+#     - main
+
+Trivy file scan:
+    stage: trivy file scan 
+    image:
+      name: aquasec/trivy:latest
+      entrypoint: [""]
+    script:
+      - trivy fs .
+      
+# update_npm:
+#   stage: setup
+#   script:
+#     - echo "Updating npm to the latest stable version..."
+#     - npm install -g npm@latest
+#     - npm --version
+
+# update_browserslist:
+#   stage: setup
+#   script:
+#     - echo "Updating browserslist database..."
+#     - npx browserslist@latest --update-db
+
+build:
+   stage: build
+   script:
+    # - echo "CI=${CI}"  # Add this line for debugging
+    - CI=false npm run build
+   artifacts:
+      paths:
+         - build
+      expire_in: 1 day
+   dependencies:
+      - install_dependencies
+      # - update_npm
+      # - update_browserslist
+
+# docker_build_and_push:
+#   stage: docker
+#   image: docker:19.03.12
+#   services:
+#     - docker:dind
+#   variables:
+#     APP_NAME: reat_app
+#     # IMAGE_TAG: registry.gitlab.com/mohammed.mahamed/mamoh-client-cp-testing/$APP_NAME:$CI_COMMIT_SHORT_SHA
+#     DOCKER_DRIVER: overlay2
+#   script:
+#     - echo "$CI_JOB_TOKEN" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
+#     # - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG .
+#     - docker build -t $IMAGE_TAG .    
+#     # - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+#     - docker push $IMAGE_TAG
+#   only:
+#     - main
+
+# Trivy image scan:
+#     stage: trivy image scan 
+#     image:
+#       name: aquasec/trivy:latest
+#       entrypoint: [""]
+#     script:
+#       - trivy image $IMAGE_TAG
+
+# test_image:
+#   stage: test_image_docker
+#   image: docker:19.03.12
+#   services:
+#     - docker:19.03.12-dind
+#   script:
+#     - echo "$CI_JOB_TOKEN" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
+#     - docker pull $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+#     - docker run --rm $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG npm test
+
+
+# deploy_to_test:
+#   stage: deploy_to_test
+#   script:
+#     - echo "REACT_APP_HOST_API=https://tapis.ma-moh.com" >> .env
+#     - echo "Netlify Site ID:$NETLIFY_SITE_ID"
+#     - npm install -g netlify-cli
+#     - netlify deploy --dir=build --prod
+#   environment:
+#     name: install
+#     url: https://dashboardmamoh.netlify.app/
+
+deploy_to_prod:
+  stage: deploy_to_prod
+  environment:
+    name: production
+    url: https://your-ec2-instance-url
+  image: alpine
+  before_script:
+    - apk add openssh-client
+    - eval $(ssh-agent -s)
+    - echo "$DEPLOY_PRIVATE_KEY_SECRET" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+  script:
+    - scp -o StrictHostKeyChecking=no -r build/* ubuntu@ec2-51-21-31-228.eu-north-1.compute.amazonaws.com:/var/www/mamoh-cp-reactjs/build
+  variables:
+      DEPLOY_PRIVATE_KEY_SECRET: $EC2_PRIVATE_KEY  # Encrypted variable for private key
+  #     DEPLOY_USERNAME: $EC2_USERNAME  # Encrypted variable for username
+  #     EC2_HOST: $EC2_HOST  # Encrypted variable for EC2 host
+      

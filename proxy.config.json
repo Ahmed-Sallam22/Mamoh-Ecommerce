@@ -1,0 +1,7 @@
+{
+    "/api": {
+      "target": "https://tapis.ma-moh.com",
+      "secure": false,
+      "changeOrigin": true
+    }
+  }
